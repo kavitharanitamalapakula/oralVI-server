@@ -25,6 +25,16 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// testing
+app.get('/', async (req, res) => {
+    try {
+        res.json({
+            message: 'API is working',
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Test API error', error: err.message });
+    }
+})
 app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
