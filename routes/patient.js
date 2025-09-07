@@ -27,12 +27,23 @@ router.post('/upload', authenticateToken, authorizeRoles('patient'), upload.sing
         if (!name || !patientId || !email) return res.status(400).json({ message: 'Missing required fields' });
         if (!req.file) return res.status(400).json({ message: 'Image file is required' });
 
-        // Upload to Cloudinary using buffer
+        // Upload to Cloudinary using buffer with improved error handling
         const cloudinaryResult = await new Promise((resolve, reject) => {
             const stream = cloudinary.uploader.upload_stream(
                 { folder: 'oralvis/submissions', public_id: `${Date.now()}_${req.file.originalname.split('.')[0]}` },
-                (error, result) => (error ? reject(error) : resolve(result))
+                (error, result) => {
+                    if (error) {
+                        console.error('Cloudinary upload error:', error);
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
+                }
             );
+            stream.on('error', (err) => {
+                console.error('Stream error:', err);
+                reject(err);
+            });
             stream.end(req.file.buffer);
         });
 
@@ -44,7 +55,7 @@ router.post('/upload', authenticateToken, authorizeRoles('patient'), upload.sing
             email,
             note,
             imageUrl: cloudinaryResult.secure_url
-        });
+        }); ns
 
         await submission.save();
 
