@@ -20,27 +20,23 @@ const upload = multer({
 });
 
 // Upload submission
-router.post('/upload', [
-    authenticateToken,
-    authorizeRoles('patient'),
-    upload.single('image'),
-    body('name').notEmpty(),
-    body('patientId').notEmpty(),
-    body('email').isEmail(),
-], async (req, res) => {
+router.post('/upload', authenticateToken, authorizeRoles('patient'), upload.single('image'), async (req, res) => {
     try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
+        // Validate form fields
+        const { name, patientId, email, note } = req.body;
+        if (!name || !patientId || !email) return res.status(400).json({ message: 'Missing required fields' });
         if (!req.file) return res.status(400).json({ message: 'Image file is required' });
 
-        const { name, patientId, email, note } = req.body;
+        // Upload to Cloudinary using buffer
+        const cloudinaryResult = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { folder: 'oralvis/submissions', public_id: `${Date.now()}_${req.file.originalname.split('.')[0]}` },
+                (error, result) => (error ? reject(error) : resolve(result))
+            );
+            stream.end(req.file.buffer);
+        });
 
-        const cloudinaryResult = await cloudinary.uploader.upload(
-            `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,
-            { folder: 'oralvis/submissions', public_id: `${Date.now()}_${req.file.originalname.split('.')[0]}` }
-        );
-
+        // Save to DB
         const submission = new Submission({
             patient: req.user._id,
             name,
@@ -58,7 +54,7 @@ router.post('/upload', [
         });
     } catch (error) {
         console.error('Upload error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
