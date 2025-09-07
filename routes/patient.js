@@ -55,7 +55,7 @@ router.post('/upload', authenticateToken, authorizeRoles('patient'), upload.sing
             email,
             note,
             imageUrl: cloudinaryResult.secure_url
-        }); ns
+        });
 
         await submission.save();
 
